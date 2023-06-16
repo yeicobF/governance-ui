@@ -17,7 +17,6 @@ import { PublicKey } from '@solana/web3.js'
 import Button, { LinkButton, SecondaryButton } from '@components/Button'
 import Input from '@components/inputs/Input'
 import Textarea from '@components/inputs/Textarea'
-import TokenBalanceCardWrapper from '@components/TokenBalance/TokenBalanceCardWrapper'
 import useGovernanceAssets, {
   InstructionType,
 } from '@hooks/useGovernanceAssets'
@@ -558,161 +557,205 @@ const New = () => {
 
   const titleTooLong = form.title.length > TITLE_LENGTH_LIMIT
 
+
+  const NUMBER_OF_FORM_STEPS = 2
+
+  const  useFormStep = (numberOfSteps: number) => {
+    const [formStep, setFormStep] = useState<number>(0)
+    
+    const isThereNextStep = formStep < numberOfSteps
+    const isTherePreviousStep = formStep > 0
+   
+    const nextStep = () => {
+      if (!isThereNextStep) return
+
+      setFormStep((prev) => prev + 1)
+    }
+
+    const previousStep = () => {
+      if (!isTherePreviousStep) return
+
+      setFormStep((prev) => prev - 1)
+    }
+
+    return {
+      formStep,
+      isThereNextStep,
+      isTherePreviousStep,
+      nextStep,
+      previousStep,
+    }
+  }
+
+  const {
+    formStep,
+    // isThereNextStep,
+    // isTherePreviousStep,
+    // nextStep,
+    // previousStep
+  } = useFormStep(NUMBER_OF_FORM_STEPS)
+
+  const STEP_NAMES = [
+    'Rules & Options',
+    'Title & Description'
+  ]
+
+
   return (
-    <div className="grid grid-cols-12 gap-4">
-      <div
-        className={`bg-bkg-2 col-span-12 md:col-span-7 md:order-first lg:col-span-8 order-last p-4 md:p-6 rounded-lg space-y-3 ${
-          isLoading ? 'pointer-events-none' : ''
-        }`}
-      >
-        <>
-          <PreviousRouteBtn></PreviousRouteBtn>
-          <div className="border-b border-fgd-4 pb-4 pt-2">
-            <div className="flex items-center justify-between">
-              <h1>
-                Add a proposal
-                {realmInfo?.displayName
-                  ? ` to ${realmInfo.displayName}`
-                  : ``}{' '}
-              </h1>
+    <div
+      className={`bg-bkg-6 p-4 md:p-6 md:container mx-auto ${
+        isLoading ? 'pointer-events-none' : ''
+      }`}
+    >
+      <section className='flex py-4 gap-2 items-center w-full'>
+        <span className='text-fgd-5'>{`Step ${formStep + 1} of ${NUMBER_OF_FORM_STEPS}`}</span>
+        <h2 className='text-white'>{STEP_NAMES[formStep]}</h2>
+      </section>
+      <PreviousRouteBtn>
+        <XCircleIcon className="h-5 mr-1.5 w-5" />
+        Close
+      </PreviousRouteBtn>   
+      <div className="border-b border-fgd-4 pb-4 pt-2">
+        <div className="flex items-center justify-between">
+          <h1>
+            Add a proposal
+            {realmInfo?.displayName
+              ? ` to ${realmInfo.displayName}`
+              : ``}{' '}
+          </h1>
+        </div>
+      </div>
+      <div className="pt-2">
+        <div className="pb-4 relative min-h-[100px]">
+          <Input
+            label="Title"
+            placeholder="Title of your proposal"
+            value={form.title}
+            type="text"
+            error={formErrors['title']}
+            showErrorState={titleTooLong}
+            onChange={(evt) =>
+              handleSetForm({
+                value: evt.target.value,
+                propertyName: 'title',
+              })
+            }
+          />
+          <div className="max-w-lg w-full absolute bottom-4 left-0">
+            <div
+              className={classNames(
+                'absolute',
+                'bottom-0',
+                'right-0',
+                'text-xs',
+                titleTooLong ? 'text-error-red' : 'text-white/50'
+              )}
+            >
+              {form.title.length} / {TITLE_LENGTH_LIMIT}
             </div>
           </div>
-          <div className="pt-2">
-            <div className="pb-4 relative min-h-[100px]">
-              <Input
-                label="Title"
-                placeholder="Title of your proposal"
-                value={form.title}
-                type="text"
-                error={formErrors['title']}
-                showErrorState={titleTooLong}
-                onChange={(evt) =>
-                  handleSetForm({
-                    value: evt.target.value,
-                    propertyName: 'title',
-                  })
-                }
-              />
-              <div className="max-w-lg w-full absolute bottom-4 left-0">
-                <div
-                  className={classNames(
-                    'absolute',
-                    'bottom-0',
-                    'right-0',
-                    'text-xs',
-                    titleTooLong ? 'text-error-red' : 'text-white/50'
+        </div>
+        <Textarea
+          className="mb-3"
+          label="Description"
+          placeholder="Description of your proposal or use a github gist link (optional)"
+          value={form.description}
+          onChange={(evt) =>
+            handleSetForm({
+              value: evt.target.value,
+              propertyName: 'description',
+            })
+          }
+        ></Textarea>
+        {canChooseWhoVote && (
+          <VoteBySwitch
+            checked={voteByCouncil}
+            onChange={() => {
+              setVoteByCouncil(!voteByCouncil)
+            }}
+          ></VoteBySwitch>
+        )}
+        <NewProposalContext.Provider
+          value={{
+            instructionsData,
+            handleSetInstructions,
+            governance,
+            setGovernance,
+            voteByCouncil,
+          }}
+        >
+          <h2>Transactions</h2>
+          {instructionsData.map((instruction, index) => {
+            // copy index to keep its value for onChange function
+            const idx = index
+
+            return (
+              <div
+                key={idx}
+                className="mb-3 border border-fgd-4 p-4 md:p-6 rounded-lg"
+              >
+                <StyledLabel>Instruction {idx + 1}</StyledLabel>
+
+                <SelectInstructionType
+                  instructionTypes={availableInstructions}
+                  onChange={(instructionType) =>
+                    setInstructionType({
+                      value: instructionType,
+                      idx,
+                    })
+                  }
+                  selectedInstruction={instruction.type}
+                />
+
+                <div className="flex items-end pt-4">
+                  <InstructionContentContainer
+                    idx={idx}
+                    instructionsData={instructionsData}
+                  >
+                    {getCurrentInstruction({
+                      typeId: instruction.type?.id,
+                      index: idx,
+                    })}
+                  </InstructionContentContainer>
+                  {idx !== 0 && (
+                    <LinkButton
+                      className="flex font-bold items-center ml-4 text-fgd-1 text-sm"
+                      onClick={() => removeInstruction(idx)}
+                    >
+                      <XCircleIcon className="h-5 mr-1.5 text-red w-5" />
+                      Remove
+                    </LinkButton>
                   )}
-                >
-                  {form.title.length} / {TITLE_LENGTH_LIMIT}
                 </div>
               </div>
-            </div>
-            <Textarea
-              className="mb-3"
-              label="Description"
-              placeholder="Description of your proposal or use a github gist link (optional)"
-              value={form.description}
-              onChange={(evt) =>
-                handleSetForm({
-                  value: evt.target.value,
-                  propertyName: 'description',
-                })
-              }
-            ></Textarea>
-            {canChooseWhoVote && (
-              <VoteBySwitch
-                checked={voteByCouncil}
-                onChange={() => {
-                  setVoteByCouncil(!voteByCouncil)
-                }}
-              ></VoteBySwitch>
-            )}
-            <NewProposalContext.Provider
-              value={{
-                instructionsData,
-                handleSetInstructions,
-                governance,
-                setGovernance,
-                voteByCouncil,
-              }}
-            >
-              <h2>Transactions</h2>
-              {instructionsData.map((instruction, index) => {
-                // copy index to keep its value for onChange function
-                const idx = index
-
-                return (
-                  <div
-                    key={idx}
-                    className="mb-3 border border-fgd-4 p-4 md:p-6 rounded-lg"
-                  >
-                    <StyledLabel>Instruction {idx + 1}</StyledLabel>
-
-                    <SelectInstructionType
-                      instructionTypes={availableInstructions}
-                      onChange={(instructionType) =>
-                        setInstructionType({
-                          value: instructionType,
-                          idx,
-                        })
-                      }
-                      selectedInstruction={instruction.type}
-                    />
-
-                    <div className="flex items-end pt-4">
-                      <InstructionContentContainer
-                        idx={idx}
-                        instructionsData={instructionsData}
-                      >
-                        {getCurrentInstruction({
-                          typeId: instruction.type?.id,
-                          index: idx,
-                        })}
-                      </InstructionContentContainer>
-                      {idx !== 0 && (
-                        <LinkButton
-                          className="flex font-bold items-center ml-4 text-fgd-1 text-sm"
-                          onClick={() => removeInstruction(idx)}
-                        >
-                          <XCircleIcon className="h-5 mr-1.5 text-red w-5" />
-                          Remove
-                        </LinkButton>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </NewProposalContext.Provider>
-            <div className="flex justify-end mt-4 mb-8 px-6">
-              <LinkButton
-                className="flex font-bold items-center text-fgd-1 text-sm"
-                onClick={addInstruction}
-              >
-                <PlusCircleIcon className="h-5 mr-1.5 text-green w-5" />
-                Add instruction
-              </LinkButton>
-            </div>
-            <div className="border-t border-fgd-4 flex justify-end mt-6 pt-6 space-x-4">
-              <SecondaryButton
-                disabled={isLoading}
-                isLoading={isLoadingDraft}
-                onClick={() => handleCreate(true)}
-              >
-                Save draft
-              </SecondaryButton>
-              <Button
-                isLoading={isLoadingSignedProposal}
-                disabled={isLoading}
-                onClick={() => handleCreate(false)}
-              >
-                Add proposal
-              </Button>
-            </div>
-          </div>
-        </>
-      </div>
-      <div className="col-span-12 md:col-span-5 lg:col-span-4 space-y-4">
-        <TokenBalanceCardWrapper />
+            )
+          })}
+        </NewProposalContext.Provider>
+        <div className="flex justify-end mt-4 mb-8 px-6">
+          <LinkButton
+            className="flex font-bold items-center text-fgd-1 text-sm"
+            onClick={addInstruction}
+          >
+            <PlusCircleIcon className="h-5 mr-1.5 text-green w-5" />
+            Add instruction
+          </LinkButton>
+        </div>
+        <div className="border-t border-fgd-4 flex justify-end mt-6 pt-6 space-x-4">
+          <SecondaryButton
+            disabled={isLoading}
+            isLoading={isLoadingDraft}
+            onClick={() => handleCreate(true)}
+          >
+            Save draft
+          </SecondaryButton>
+          <Button
+            isLoading={isLoadingSignedProposal}
+            disabled={isLoading}
+            onClick={() => handleCreate(false)}
+          >
+            Add proposal
+          </Button>
+        </div>
       </div>
     </div>
   )
